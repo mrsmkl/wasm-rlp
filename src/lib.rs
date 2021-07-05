@@ -55,22 +55,6 @@ fn needed_bytes(num: usize) -> u8 {
     return 8    
 }
 
-/*
-fn handle_len(output: &mut Vec<u8>, len: usize) {
-    if len == 0 {
-        // the int is 0
-        output.push(0x80)
-    } else if len <= 0x7f {
-        output.push(len as u8)
-    } else {
-        let needed = needed_bytes(len);
-        output.push((needed + 0x80) as u8);
-        for i in 0..needed {
-            output.push(((len >> (8*i)) & 0xff) as u8)
-        }
-    }
-}*/
-
 fn handle_bytes(output: &mut Vec<u8>, num: &[u8]) {
     let len = num.len();
     if num.len() == 0 {
@@ -111,7 +95,7 @@ fn handle_address(output: &mut Vec<u8>, num: &[u8]) {
 
 fn read_int(num: &[u8]) -> usize {
     let mut res : usize = 0;
-    for i in 0..4 {
+    for i in 28..32 {
         res = res * 256;
         res += num[i] as usize;
     }
@@ -121,7 +105,7 @@ fn read_int(num: &[u8]) -> usize {
 pub fn process(v: Vec<u8>) -> Vec<u8> {
     let mut output = vec![];
     output.reserve(1024);
-    let len = read_int(&v[160..192]); // data
+    let len = read_int(&v[160..192]); // data len
     /*
     let s = RlpStream::new_list(9);
     // s.append(v[]);
@@ -134,7 +118,7 @@ pub fn process(v: Vec<u8>) -> Vec<u8> {
     handle_uint(&mut output, &v[64..96]); // gas limit
     handle_address(&mut output, &v[96..128]); // address
     handle_uint(&mut output, &v[128..160]); // value
-    handle_bytes(&mut output, &v[288..288+len]);
+    handle_bytes(&mut output, &v[288..288+len]); // data
     handle_uint(&mut output, &v[192..224]); // v
     handle_uint(&mut output, &v[224..256]); // r
     handle_uint(&mut output, &v[256..288]); // s
