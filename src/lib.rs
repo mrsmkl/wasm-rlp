@@ -1,8 +1,7 @@
 mod utils;
 
 use wasm_bindgen::prelude::*;
-// use rlp::RlpStream;
-// use primitive_types::U256;
+use tiny_keccak::{Keccak, Hasher};
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -106,12 +105,6 @@ pub fn process(v: Vec<u8>) -> Vec<u8> {
     let mut output = vec![];
     output.reserve(1024);
     let len = read_int(&v[160..192]); // data len
-    /*
-    let s = RlpStream::new_list(9);
-    // s.append(v[]);
-    let res = rlp::encode_list(&lst);
-    v
-    */
     output.push(0xc0 + 9);
     handle_uint(&mut output, &v[0..32]); // seqnum
     handle_uint(&mut output, &v[32..64]); // gas price
@@ -134,7 +127,12 @@ pub fn test() -> u32 {
 
     usegas(input_len / 10 + 1);
 
-    let mut output = process(input);
+    let mut data = process(input);
+
+    let mut output = vec![0u8; 32];
+    let mut hasher = Keccak::v256();
+    hasher.update(&data[..]);
+    hasher.finalize(&mut output);
 
     wvec(output.as_mut_ptr(), 0, output.len() as i32);
     setlen(output.len() as i32);
