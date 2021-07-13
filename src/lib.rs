@@ -18,6 +18,9 @@ extern "C" {
     fn usegas(gas: i32);
     fn rvec(ptr: *mut u8, idx: i32, len: i32);
     fn wvec(ptr: *mut u8, idx: i32, len: i32);
+    fn tuplebytes(ptr: *mut u8, idx: i32);
+    fn tuple2bytes(ptr: *mut u8, idx: i32, idx2: i32);
+    fn tuple2buffer(ptr: *mut u8, idx: i32, idx2: i32, len: i32);
 }
 
 fn handle_uint(output: &mut Vec<u8>, num: &[u8]) {
@@ -101,33 +104,64 @@ fn read_int(num: &[u8]) -> usize {
     res
 }
 
-pub fn process(v: Vec<u8>) -> Vec<u8> {
+pub fn process() -> Vec<u8> {
     let mut output = vec![];
     output.reserve(1024);
-    let len = read_int(&v[160..192]); // data len
     output.push(0xc0 + 9);
-    handle_uint(&mut output, &v[0..32]); // seqnum
-    handle_uint(&mut output, &v[32..64]); // gas price
-    handle_uint(&mut output, &v[64..96]); // gas limit
-    handle_address(&mut output, &v[96..128]); // address
-    handle_uint(&mut output, &v[128..160]); // value
-    handle_bytes(&mut output, &v[288..288+len]); // data
-    handle_uint(&mut output, &v[192..224]); // v
-    handle_uint(&mut output, &v[224..256]); // r
-    handle_uint(&mut output, &v[256..288]); // s
+    let seqnum = int_from_tuple(0);
+    let gasprice = int_from_tuple(1);
+    let gaslimit = int_from_tuple(2);
+    let address = int_from_tuple(3);
+    let value = int_from_tuple(4);
+    let v = int_from_bigtuple(5, 0);
+    let r = int_from_bigtuple(5, 1);
+    let s = int_from_bigtuple(5, 2);
+    let len_b = int_from_bigtuple(6, 0);
+    let len = read_int(&len_b);
+    let data = buffer_from_bigtuple(6, 1, len); // data
+
+    handle_uint(&mut output, &seqnum); // seqnum
+    handle_uint(&mut output, &gasprice); // gas price
+    handle_uint(&mut output, &gaslimit); // gas limit
+    handle_address(&mut output, &address); // address
+    handle_uint(&mut output, &value); // value
+    handle_bytes(&mut output, &data); // data
+    handle_uint(&mut output, &v); // v
+    handle_uint(&mut output, &r); // r
+    handle_uint(&mut output, &s); // s
     output
+}
+
+fn int_from_tuple(i: i32) -> Vec<u8> {
+    let mut input = vec![0; 32];
+    tuplebytes(input.as_mut_ptr(), i);
+    input
+}
+
+fn int_from_bigtuple(i: i32, j: i32) -> Vec<u8> {
+    let mut input = vec![0; 32];
+    tuple2bytes(input.as_mut_ptr(), i, j);
+    input
+}
+
+fn buffer_from_bigtuple(i: i32, j: i32, len: usize) -> Vec<u8> {
+    let mut input = vec![0; len];
+    tuple2buffer(input.as_mut_ptr(), i, j, len as i32);
+    input
 }
 
 #[wasm_bindgen]
 pub fn test() -> u32 {
+    /*
     let input_len = getlen();
     let mut input = vec![0; input_len as usize];
 
     rvec(input.as_mut_ptr(), 0, input_len);
 
     usegas(input_len / 10 + 1);
+    */
 
-    let mut data = process(input);
+    let data = process();
 
     let mut output = vec![0u8; 32];
     let mut hasher = Keccak::v256();
