@@ -24,23 +24,23 @@ extern "C" {
 }
 
 fn handle_uint(output: &mut Vec<u8>, num: &[u8]) {
-    let mut first_zero = 32;
+    let mut first_nzero = 32;
     for i in 0..32 {
-        if num[32-i-1] == 0 {
-            first_zero = i;
+        if num[i] != 0 {
+            first_nzero = i;
             break
         }
     }
-    if first_zero == 0 {
+    if first_nzero == 32 {
         // the int is 0
         output.push(0x80)
-    } else if first_zero == 1 && num[31] <= 0x7f {
+    } else if first_nzero == 31 && num[31] <= 0x7f {
         output.push(num[31])
     } else {
         // needed bytes
-        output.push((first_zero + 0x80) as u8);
-        for i in 0..first_zero {
-            output.push(num[32-i-1])
+        output.push(((32 - first_nzero) + 0x80) as u8);
+        for i in first_nzero..32 {
+            output.push(num[i])
         }
     }
 }
@@ -72,7 +72,7 @@ fn handle_bytes(output: &mut Vec<u8>, num: &[u8]) {
         let needed = needed_bytes(len);
         output.push(needed + 0xb7);
         for i in 0..needed {
-            output.push(((len >> (8*i)) & 0xff) as u8)
+            output.push(((len >> (8*(needed-i-1))) & 0xff) as u8)
         }
         for b in num {
             output.push(*b)
@@ -104,10 +104,21 @@ fn read_int(num: &[u8]) -> usize {
     res
 }
 
+fn handle_len(output: &mut Vec<u8>, len: usize) {
+    if len <= 55 {
+        output.push(len as u8 + 0xc0)
+    } else {
+        let needed = needed_bytes(len);
+        output.push((needed + 0xf7) as u8);
+        for i in 0..needed {
+            output.push(((len >> (8*(needed-i-1))) & 0xff) as u8)
+        }
+    }
+}
+
 pub fn process() -> Vec<u8> {
     let mut output = vec![];
     output.reserve(1024);
-    output.push(0xc0 + 9);
     let seqnum = int_from_tuple(0);
     let gasprice = int_from_tuple(1);
     let gaslimit = int_from_tuple(2);
@@ -116,20 +127,28 @@ pub fn process() -> Vec<u8> {
     let v = int_from_bigtuple(5, 0);
     let r = int_from_bigtuple(5, 1);
     let s = int_from_bigtuple(5, 2);
-    let len_b = int_from_bigtuple(6, 0);
-    let len = read_int(&len_b);
-    let data = buffer_from_bigtuple(6, 1, len); // data
+    let len = read_int(&int_from_bigtuple(6, 0));
+    let offset = read_int(&int_from_bigtuple(6, 1));
+    let data = buffer_from_bigtuple(6, 2, len+offset); // data
+    let data = &data[offset..len+offset];
 
     handle_uint(&mut output, &seqnum); // seqnum
     handle_uint(&mut output, &gasprice); // gas price
     handle_uint(&mut output, &gaslimit); // gas limit
     handle_address(&mut output, &address); // address
     handle_uint(&mut output, &value); // value
-    handle_bytes(&mut output, &data); // data
+    handle_bytes(&mut output, data); // data
     handle_uint(&mut output, &v); // v
     handle_uint(&mut output, &r); // r
     handle_uint(&mut output, &s); // s
-    output
+
+    let mut res = vec![];
+    res.reserve(1024);
+    handle_len(&mut res, output.len());
+    for c in output {
+        res.push(c)
+    }
+    res
 }
 
 fn int_from_tuple(i: i32) -> Vec<u8> {
