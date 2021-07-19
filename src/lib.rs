@@ -161,12 +161,15 @@ pub fn test() -> u32 {
     usegas(input_len / 10 + 1);
     */
 
-    let data = process();
 
+    /*
+    let data = process();
     let mut output = vec![0u8; 32];
     let mut hasher = Keccak::v256();
     hasher.update(&data[..]);
     hasher.finalize(&mut output);
+    */
+    let mut output = process();
 
     wvec(output.as_mut_ptr(), 0, output.len() as i32);
     setlen(output.len() as i32);
