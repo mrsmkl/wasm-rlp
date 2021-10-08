@@ -81,14 +81,14 @@ fn handle_bytes(output: &mut Vec<u8>, num: &[u8]) {
 }
 
 fn handle_address(output: &mut Vec<u8>, num: &[u8]) {
-    let mut first_zero = 32;
+    let mut all_zero = true;
     for i in 0..32 {
-        if num[32-i-1] == 0 {
-            first_zero = i;
+        if num[i] != 0 {
+            all_zero = false;
             break
         }
     }
-    if first_zero == 0 {
+    if all_zero {
         output.push(0x80)
     } else {
         handle_bytes(output, &num[12..32])
